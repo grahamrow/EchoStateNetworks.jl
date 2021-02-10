@@ -26,6 +26,7 @@ mutable struct EchoStateNetwork{T<:AbstractFloat}
     input::Vector{T}
     output::Vector{T}
     rng::AbstractRNG
+    activation::Function
 
     function EchoStateNetwork{T}(;Ni::Integer=1,
         No::Integer=1,
@@ -36,6 +37,7 @@ mutable struct EchoStateNetwork{T<:AbstractFloat}
         leaking_rate::AbstractFloat=1.0, 
         teacher_forcing::Bool=true,
         rng::AbstractRNG=MersenneTwister(rand(UInt32)),
+        activation::Function=x->tanh(x),
        ) where T<:AbstractFloat
         esn = new()
     
@@ -48,6 +50,7 @@ mutable struct EchoStateNetwork{T<:AbstractFloat}
         esn.noise_level = noise_level
         esn.leaking_rate = leaking_rate
         esn.rng = rng
+        esn.activation = activation
     
         init_weights!(esn)
     
@@ -82,13 +85,13 @@ end
 
 function update(esn::EchoStateNetwork{T}, state::Vector{T}, 
                 input::Vector{T}, output::Vector{T}, arch::NoTeacherForcing) where T<:AbstractFloat
-    return activate(tanh, esn.Wi*[one(T);input] + esn.Wr*state)
+    return activate(esn.activation, esn.Wi*[one(T);input] + esn.Wr*state)
     + esn.noise_level*(rand(esn.rng, T, esn.Nr)-T(0.5))
 end
 
 function update(esn::EchoStateNetwork{T}, state::Vector{T},
                                   input::Vector{T}, output::Vector{T}, arch::TeacherForcing) where T<:AbstractFloat
-    return activate(tanh, esn.Wi*[one(T);input] + esn.Wr*state + esn.Wf*output)
+    return activate(esn.activation, esn.Wi*[one(T);input] + esn.Wr*state + esn.Wf*output)
     + esn.noise_level*(rand(esn.rng, T, esn.Nr)-T(0.5))
 end
 
